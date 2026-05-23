@@ -1,0 +1,70 @@
+{
+  "name": "@buygit/mcp-server",
+  "version": "0.9.0",
+  "description": "MCP server for the BuyGit Open Index — 78k+ curated, license-tagged Git assets. 14 tools, 7 resource templates, 4 prompts. Every response carries 4-axis signals (license + supply-chain risk + popularity + pricing) — the industry-unique combination no other MCP returns in a single call. Includes a SPDX × SPDX compatibility verdict tool, external GitHub repo audit, time-window signal diff, federated deep audit (chains Socket / OpenSSF / TruffleHog companion MCPs), AI summaries (Claude Haiku, gated on operator key), Tool Search routing, full MCP 2025-11-25 spec (icons + structuredContent + outputSchema on every tool + JSON Schema 2020-12), MCP 2025-06-18 Elicitation, and Streamable HTTP transport. Works with Antigravity, Claude Desktop, Claude Code, Codex CLI, Gemini CLI, Cursor, Cline, Roo Code, Continue, Windsurf, Zed, OpenCode, and any MCP-compatible client.",
+  "type": "module",
+  "bin": {
+    "buygit-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist/",
+    "README.md",
+    "WHEN_NOT_TO_USE.md",
+    "CLIENTS.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "BuyGit",
+    "email": "support@buygit.com",
+    "url": "https://buygit.com"
+  },
+  "homepage": "https://buygit.com/mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/genoxdeveloper/buygit-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/genoxdeveloper/buygit-mcp-server/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "buygit",
+    "git",
+    "discovery",
+    "anthropic",
+    "claude",
+    "cursor",
+    "cline",
+    "ai",
+    "agent"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "undici": "^6.20.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
