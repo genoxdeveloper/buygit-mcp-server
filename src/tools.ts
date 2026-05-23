@@ -73,6 +73,15 @@ function errorResult(err: unknown): ToolResult {
 }
 
 /**
+ * Normalise the API rating shape into the ListingDetail.rating_block
+ * expected by formatters. Centralised here to avoid the 3-place
+ * duplication that was present in v0.9.1.
+ */
+function normalizeRating(raw: { rating?: { avg: number | null; count: number } }): { avg: number | null; count: number } {
+  return raw.rating ?? { avg: null, count: 0 };
+}
+
+/**
  * Reusable JSON Schema fragments. Hoisted to module scope so every
  * tool that returns a listing references the same shape — keeps the
  * outputSchemas DRY and lets a future Signals change land in one place.
@@ -271,7 +280,7 @@ const getListingTool: ToolDefinition = {
       );
       const detail: ListingDetail = {
         ...raw,
-        rating_block: raw.rating ?? { avg: null, count: 0 },
+        rating_block: normalizeRating(raw),
       };
       return textResult(detailBlock(detail), {
         slug: detail.slug,
@@ -307,7 +316,9 @@ const listCategoriesTool: ToolDefinition = {
       categories: { type: 'array', items: { type: 'object' } },
     },
   },
-  handler: async () => {
+  handler: async (args) => {
+    // P3-2: validate even empty-arg tools for schema consistency
+    const _parsed = z.object({}).safeParse(args ?? {}); void _parsed;
     try {
       interface Node { slug: string; name: string; crawler_listing_count: number; children: Node[] }
       const res = await apiGet<{ categories: Node[] }>(`/api/v1/crawler/categories`);
@@ -411,14 +422,16 @@ const compareTool: ToolDefinition = {
     const parsed = compareInput.safeParse(args ?? {});
     if (!parsed.success) return errorResult(parsed.error.message);
     try {
+      // P3-4: encode each slug individually then join — prevents comma
+      // from being double-encoded by the query-string builder.
       const res = await apiGet<{ items: (ListingDetail | { slug: string; error: string })[] }>(
         '/api/v1/crawler/compare',
-        { slugs: parsed.data.slugs.join(',') },
+        { slugs: parsed.data.slugs.map(s => encodeURIComponent(s)).join(',') },
       );
       const items = res.items.map((it) => {
         if ('error' in it) return it;
         const r = it as ListingDetail & { rating?: { avg: number | null; count: number } };
-        return { ...r, rating_block: r.rating ?? { avg: null, count: 0 } } as ListingDetail;
+        return { ...r, rating_block: normalizeRating(r) } as ListingDetail;
       });
       return textResult(compareBlock(items), {
         items: items.map((it) => {
@@ -451,7 +464,9 @@ const statsTool: ToolDefinition = {
       by_source: { type: 'array' },
     },
   },
-  handler: async () => {
+  handler: async (args) => {
+    // P3-3: validate even empty-arg tools for schema consistency
+    const _parsed = z.object({}).safeParse(args ?? {}); void _parsed;
     try {
       interface Stats {
         total_listings: number;
@@ -576,7 +591,19 @@ const findAlternativeTool: ToolDefinition = {
         '/api/v1/crawler/search',
         { q: query, language, license, limit, sort: 'stars' },
       );
-      const filtered = res.results.filter((r) => !r.title.toLowerCase().includes(query.toLowerCase().split(/[\s/]/)[0] ?? ''));
+      // P2-1: Use word-boundary matching instead of naive includes().
+      // This prevents "react" from matching "reactivity" or "reactive-streams".
+      const queryTerms = query.toLowerCase().split(/[\s/]+/).filter(t => t.length > 1);
+      const filtered = res.results.filter((r) => {
+        const title = r.title.toLowerCase();
+        // Exclude listings whose title exactly matches ALL query terms
+        // (i.e. the original library itself), but keep partial matches.
+        const matchesAll = queryTerms.every(term => {
+          const re = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+          return re.test(title);
+        });
+        return !matchesAll;
+      });
       const final = filtered.length >= 3 ? filtered : res.results;
       return textResult(
         summaryList(final, {
@@ -995,7 +1022,7 @@ const explainTool: ToolDefinition = {
       const raw = await apiGet<ListingDetail & { rating?: { avg: number | null; count: number } }>(
         `/api/v1/crawler/listings/${encodeURIComponent(slug)}`,
       );
-      detail = { ...raw, rating_block: raw.rating ?? { avg: null, count: 0 } };
+      detail = { ...raw, rating_block: normalizeRating(raw) };
     } catch (err) {
       return errorResult(err);
     }
@@ -1029,6 +1056,8 @@ const explainTool: ToolDefinition = {
     ].filter(Boolean).join('\n');
 
     try {
+      // P2-6: Model is configurable via env var; defaults to Haiku 4.5.
+      const explainModel = process.env.BUYGIT_EXPLAIN_MODEL || 'claude-haiku-4-5-20251001';
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -1037,7 +1066,7 @@ const explainTool: ToolDefinition = {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: explainModel,
           max_tokens: 512,
           system: sysPrompt,
           messages: [{ role: 'user', content: userPrompt }],
@@ -1387,11 +1416,19 @@ const deepAuditTool: ToolDefinition = {
     //    Each companion has its own conventional tool name — we pick the
     //    one most analogous to "audit this repo". When the companion
     //    doesn't have a matching tool, status: 'error' with a hint.
-    const COMPANION_TOOL_MAP: Record<string, string> = {
-      'socket-mcp': 'socket_check_package',     // Socket convention
-      'openssf-mcp': 'scorecard',               // hypothetical — adjust on first contact
-      'trufflehog-mcp': 'scan_repo',            // hypothetical
+    // P2-2: Tool names are configurable via env (JSON) so operators can
+    // adjust when companion MCPs update their tool names.
+    const defaultMap: Record<string, string> = {
+      'socket-mcp': 'socket_check_package',
+      'openssf-mcp': 'scorecard',
+      'trufflehog-mcp': 'scan_repo',
     };
+    let COMPANION_TOOL_MAP = defaultMap;
+    if (process.env.BUYGIT_COMPANION_TOOL_MAP) {
+      try {
+        COMPANION_TOOL_MAP = { ...defaultMap, ...JSON.parse(process.env.BUYGIT_COMPANION_TOOL_MAP) };
+      } catch { /* malformed env — fall through to defaults */ }
+    }
 
     const federation = await Promise.all(
       opts.federate_with.map((mcp) =>

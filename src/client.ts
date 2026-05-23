@@ -17,21 +17,41 @@ import { VERSION } from './version.js';
 const DEFAULT_BASE = process.env.BUYGIT_API_BASE || 'https://buygit.com';
 const USER_AGENT = `@buygit/mcp-server/${VERSION} (+https://buygit.com/mcp)`;
 
+/**
+ * P2-7: Timeout is configurable via env var. Raised default from 12s
+ * to 15s to accommodate cold-start scenarios on Railway / serverless.
+ */
+const DEFAULT_TIMEOUT_MS = Number(process.env.BUYGIT_TIMEOUT_MS) || 15_000;
+
+/**
+ * P2-3: Track which base URL the pool was created for. When the env
+ * var changes (e.g. operator hot-swaps to a mirror), the next request
+ * transparently re-creates the pool.
+ */
 let pool: Pool | null = null;
+let poolBase: string | null = null;
+
 function ensurePool(base: string): Pool {
-  if (pool === null) {
+  if (pool === null || poolBase !== base) {
+    // Close the old pool gracefully if switching bases.
+    if (pool !== null) {
+      pool.close().catch(() => { /* best-effort */ });
+    }
     pool = new Pool(base, {
       connections: 4,
       keepAliveTimeout: 60_000,
       keepAliveMaxTimeout: 600_000,
     });
+    poolBase = base;
   }
   return pool;
 }
 
 export interface ApiCallOptions {
-  /** Per-request timeout in ms (default 12s). */
+  /** Per-request timeout in ms (default from BUYGIT_TIMEOUT_MS or 15s). */
   timeoutMs?: number;
+  /** Max retry attempts for transient errors (default 3). */
+  maxRetries?: number;
 }
 
 export interface ApiEnvelope<T> {
@@ -53,12 +73,58 @@ export class BuygitApiError extends Error {
   }
 }
 
+/**
+ * Retry helper with exponential backoff for transient failures.
+ * Retries on: 429 (rate-limited), 503 (service unavailable),
+ * ECONNRESET, ETIMEDOUT, UND_ERR_SOCKET.
+ */
+function isRetryable(err: unknown): boolean {
+  if (err instanceof BuygitApiError) {
+    return err.status === 429 || err.status === 503;
+  }
+  if (err instanceof Error) {
+    return /ECONNRESET|ETIMEDOUT|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT/i.test(err.message);
+  }
+  return false;
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function apiGet<T>(
   path: string,
   query: Record<string, string | number | boolean | undefined | null> = {},
   opts: ApiCallOptions = {},
 ): Promise<T> {
   const base = DEFAULT_BASE;
+  const maxRetries = opts.maxRetries ?? 3;
+  const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await _doGet<T>(base, path, query, timeout);
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries && isRetryable(err)) {
+        // Exponential backoff: 200ms, 600ms, 1800ms
+        const delayMs = 200 * Math.pow(3, attempt);
+        await sleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+async function _doGet<T>(
+  base: string,
+  path: string,
+  query: Record<string, string | number | boolean | undefined | null>,
+  timeoutMs: number,
+): Promise<T> {
   const p = ensurePool(base);
   const qs = Object.entries(query)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
@@ -66,10 +132,6 @@ export async function apiGet<T>(
     .join('&');
   const fullPath = qs ? `${path}?${qs}` : path;
 
-  // undici Pool: call .request() on the dispatcher with `path` (origin
-  // baked into the pool). Earlier draft used the top-level `request(url)`
-  // helper with a relative path which throws ERR_INVALID_URL — the helper
-  // expects an absolute URL even when a dispatcher is supplied.
   const res = await p.request({
     method: 'GET',
     path: fullPath,
@@ -77,8 +139,8 @@ export async function apiGet<T>(
       'user-agent': USER_AGENT,
       accept: 'application/json',
     },
-    headersTimeout: opts.timeoutMs ?? 12_000,
-    bodyTimeout: opts.timeoutMs ?? 12_000,
+    headersTimeout: timeoutMs,
+    bodyTimeout: timeoutMs,
   });
 
   const status = res.statusCode;
@@ -105,3 +167,4 @@ export async function apiGet<T>(
   // Some endpoints return the data at the top level (e.g. openapi.json).
   return parsed as unknown as T;
 }
+

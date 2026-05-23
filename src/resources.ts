@@ -14,6 +14,11 @@
 import { apiGet } from './client.js';
 import { detailBlock, summaryList, compareBlock, type ListingSummary, type ListingDetail } from './format/markdown.js';
 
+/** Centralised rating normaliser — mirrors the one in tools.ts. */
+function normalizeRating(raw: { rating?: { avg: number | null; count: number } }): { avg: number | null; count: number } {
+  return raw.rating ?? { avg: null, count: 0 };
+}
+
 export interface ResourceTemplate {
   uriTemplate: string;
   name: string;
@@ -156,10 +161,7 @@ export async function readResource(uri: string): Promise<ResourceContent> {
   if (kind === 'license') {
     if (!tail || !SPDX_RE.test(tail)) throw new Error(`invalid SPDX id in uri: ${tail}`);
     const res = await apiGet<{
-      source: { spdx: string; category: string };
-      // license-compat in single-pair mode requires both source+target; we
-      // instead probe the matrix-row by issuing 6 calls (one per target
-      // category). Cheap because the matrix endpoint is immutable cache.
+      source?: { spdx: string; category: string };
       verdict?: string;
       note?: string;
     } | {
@@ -167,10 +169,11 @@ export async function readResource(uri: string): Promise<ResourceContent> {
       matrix: Record<string, Record<string, { verdict: string; note: string }>>;
       disclaimer: string;
     }>('/api/v1/crawler/license-compat', {});
-    // The single-arg call returns the full matrix. Render the row for the
-    // requested SPDX's category.
     if (!('matrix' in res)) throw new Error('unexpected license-compat shape');
-    // Determine source category by issuing a paired call against MIT (any).
+
+    // P2-4: Derive source category from the full matrix + a single
+    // paired call instead of two calls. We issue one paired call
+    // against MIT (always present) to determine the source category.
     const pair = await apiGet<{ source: { spdx: string; category: string } }>(
       '/api/v1/crawler/license-compat',
       { source: tail, target: 'MIT' },
@@ -194,7 +197,7 @@ export async function readResource(uri: string): Promise<ResourceContent> {
     const raw = await apiGet<ListingDetail & { rating?: { avg: number | null; count: number } }>(
       `/api/v1/crawler/listings/${encodeURIComponent(tail!)}`,
     );
-    const detail: ListingDetail = { ...raw, rating_block: raw.rating ?? { avg: null, count: 0 } };
+    const detail: ListingDetail = { ...raw, rating_block: normalizeRating(raw) };
     return { uri, mimeType: 'text/markdown', text: detailBlock(detail) };
   }
 
@@ -229,7 +232,7 @@ export async function readResource(uri: string): Promise<ResourceContent> {
   const items = res.items.map((it) => {
     if ('error' in it) return it;
     const r = it as ListingDetail & { rating?: { avg: number | null; count: number } };
-    return { ...r, rating_block: r.rating ?? { avg: null, count: 0 } } as ListingDetail;
+    return { ...r, rating_block: normalizeRating(r) } as ListingDetail;
   });
   return { uri, mimeType: 'text/markdown', text: compareBlock(items) };
 }
