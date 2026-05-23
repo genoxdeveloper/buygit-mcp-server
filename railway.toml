@@ -1,0 +1,23 @@
+# Railway deployment configuration for @buygit/mcp-server HTTP mode.
+#
+# Source: genoxdeveloper/buygit-mcp-server (public repo)
+# Transport: Streamable HTTP (MCP 2025-03-26)
+# Endpoint: https://mcp.buygit.com/mcp
+#
+# Required environment variables (set in Railway dashboard):
+#   BUYGIT_MCP_TRANSPORT=http
+#   BUYGIT_MCP_PORT=$PORT        # Railway injects $PORT automatically
+#
+# Optional:
+#   ANTHROPIC_API_KEY=<key>      # Enables buygit_explain tool
+#   BUYGIT_API_BASE=https://...  # Override for staging
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "node dist/index.js"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 10
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

@@ -1,0 +1,15 @@
+# Nixpacks build configuration for @buygit/mcp-server.
+# Railway uses nixpacks by default; this file pins the Node version
+# and sets the install + build commands.
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install -g pnpm@9", "pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm build"]
+
+[start]
+cmd = "node dist/index.js"
