@@ -1,0 +1,21 @@
+# Smithery publish configuration for @buygit/mcp-server
+# https://smithery.ai/docs/build/publish
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      baseUrl:
+        type: string
+        description: >-
+          Override default https://buygit.com (for self-hosted instances).
+          Leave blank to use the public BuyGit Open Index.
+        default: https://buygit.com
+    required: []
+  commandFunction: |-
+    (_config) => ({
+      command: "npx",
+      args: ["-y", "@buygit/mcp-server@latest"],
+      env: _config.baseUrl ? { BUYGIT_BASE_URL: _config.baseUrl } : {}
+    })
