@@ -16,6 +16,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createBuygitServer } from './server.js';
+import { ALL_TOOLS } from './tools.js';
 import { NAME, VERSION } from './version.js';
 
 function log(...args: unknown[]): void {
@@ -31,13 +32,10 @@ async function startStdio(): Promise<void> {
 }
 
 async function startHttp(port: number, host: string): Promise<void> {
-  // Stateless Streamable HTTP — one transport per request, no session
-  // memory. Lets the server sit behind any L7 LB without sticky sessions.
-  // Stateful mode (sessionIdGenerator: randomUUID) is available later
-  // once we add a session store; today there's no value to that.
-  const server = createBuygitServer();
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-  await server.connect(transport);
+  // Truly stateless Streamable HTTP — each POST /mcp gets a fresh
+  // server+transport pair so every request can start with "initialize".
+  // This is required for Smithery gateway and any proxy that doesn't
+  // maintain session affinity.
 
   const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     // Liveness — health checks before MCP handshake.
@@ -47,10 +45,29 @@ async function startHttp(port: number, host: string): Promise<void> {
       return;
     }
 
+    // /.well-known/mcp/server-card.json — Smithery discovery metadata
+    // Including `tools` lets Smithery skip the live MCP scan entirely.
+    if (req.method === 'GET' && req.url === '/.well-known/mcp/server-card.json') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        name: NAME,
+        version: VERSION,
+        description: 'Browse, search, and manage BuyGit digital-goods marketplace via MCP',
+        homepage: 'https://github.com/genoxdeveloper/buygit-mcp-server',
+        transport: { type: 'streamable-http', url: '/mcp' },
+        tools: ALL_TOOLS.map((t) => ({
+          name: t.name,
+          description: t.description,
+          inputSchema: t.inputSchema,
+        })),
+      }));
+      return;
+    }
+
     // Permissive CORS for browsers + ChatGPT Apps SDK. The MCP surface is
     // read-only with no cookies, so wide-open is safe.
     res.setHeader('access-control-allow-origin', '*');
-    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    res.setHeader('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('access-control-allow-headers', 'content-type, mcp-session-id, accept');
     res.setHeader('access-control-expose-headers', 'mcp-session-id');
     if (req.method === 'OPTIONS') {
@@ -66,6 +83,11 @@ async function startHttp(port: number, host: string): Promise<void> {
     }
 
     try {
+      // Per-request server+transport: truly stateless, every request
+      // can start with "initialize" without conflicting with prior sessions.
+      const server = createBuygitServer();
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      await server.connect(transport);
       await transport.handleRequest(req, res);
     } catch (err) {
       log(`[${NAME}@${VERSION}] http handler error: ${(err as Error).message}`);
@@ -84,11 +106,8 @@ async function startHttp(port: number, host: string): Promise<void> {
 
   // Clean shutdown — important for orchestrators that send SIGTERM.
   function shutdown(signal: NodeJS.Signals): void {
-    log(`[${NAME}@${VERSION}] received ${signal} — closing transport`);
-    httpServer.close(() => {
-      void transport.close();
-      process.exit(0);
-    });
+    log(`[${NAME}@${VERSION}] received ${signal} — shutting down`);
+    httpServer.close(() => process.exit(0));
   }
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
