@@ -5,7 +5,7 @@
 MCP server for the **BuyGit Open Index** — 78,094 curated, deduplicated, license-tagged Git assets from GitHub, Codeberg, npm, crates.io, WordPress, HuggingFace, and 17 other sources — to Claude Desktop, Cursor, Cline, Continue, ChatGPT Apps SDK, and any MCP 2025-11-25 client.
 
 [![npm](https://img.shields.io/npm/v/@buygit/mcp-server.svg)](https://www.npmjs.com/package/@buygit/mcp-server)
-[![license](https://img.shields.io/npm/l/@buygit/mcp-server.svg)](https://github.com/genoxdeveloper/Buygit/blob/main/packages/mcp-server/LICENSE)
+[![license](https://img.shields.io/npm/l/@buygit/mcp-server.svg)](https://github.com/genoxdeveloper/buygit-mcp-server/blob/main/LICENSE)
 
 > Companion: **[`@buygit/cli`](https://www.npmjs.com/package/@buygit/cli)** — same answers from your shell. `npx @buygit/cli search "react form" --license MIT`.
 >
@@ -222,8 +222,8 @@ This package is MIT licensed. The API responses are licensed for indexing + attr
 - BuyGit main site: <https://buygit.com>
 - BuyGit MCP landing page: <https://buygit.com/mcp>
 - OpenAPI 3.1 spec: <https://buygit.com/api/v1/crawler/openapi.json>
-- Source: <https://github.com/genoxdeveloper/Buygit/tree/main/packages/mcp-server>
-- Issues: <https://github.com/genoxdeveloper/Buygit/issues>
+- Source: <https://github.com/genoxdeveloper/buygit-mcp-server>
+- Issues: <https://github.com/genoxdeveloper/buygit-mcp-server/issues>
 - npm: <https://www.npmjs.com/package/@buygit/mcp-server>
 
 ## Develop

@@ -45,4 +45,4 @@ If BuyGit answers a question on the "do not use" table without telling
 the agent to route elsewhere, open an issue with the exact query and the
 tool that returned. We treat over-confident answers as bugs.
 
-Issues: <https://github.com/genoxdeveloper/Buygit/issues>
+Issues: <https://github.com/genoxdeveloper/buygit-mcp-server/issues>

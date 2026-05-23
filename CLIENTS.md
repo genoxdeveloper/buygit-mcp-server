@@ -300,4 +300,4 @@ The universal stdio object at the top of this file works for any client
 that follows the MCP spec. If you find the config path for a client not
 listed here, please open a PR adding it.
 
-> Issues: https://github.com/genoxdeveloper/Buygit/issues
+> Issues: https://github.com/genoxdeveloper/buygit-mcp-server/issues
