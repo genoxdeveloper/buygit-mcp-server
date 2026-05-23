@@ -3,10 +3,10 @@
 # and sets the install + build commands.
 
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+nixPkgs = ["nodejs_20", "nodePackages_latest.pnpm"]
 
 [phases.install]
-cmds = ["npm install -g pnpm@9", "pnpm install --frozen-lockfile"]
+cmds = ["pnpm install --frozen-lockfile"]
 
 [phases.build]
 cmds = ["pnpm build"]
