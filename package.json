@@ -1,7 +1,7 @@
 {
   "name": "@buygit/mcp-server",
   "mcpName": "io.github.genoxdeveloper/buygit-mcp-server",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "MCP server for the BuyGit Open Index — 78k+ curated, license-tagged Git assets. 14 tools, 7 resource templates, 4 prompts. Every response carries 4-axis signals (license + supply-chain risk + popularity + pricing) — the industry-unique combination no other MCP returns in a single call. Includes a SPDX × SPDX compatibility verdict tool, external GitHub repo audit, time-window signal diff, federated deep audit (chains Socket / OpenSSF / TruffleHog companion MCPs), AI summaries (Claude Haiku, gated on operator key), Tool Search routing, full MCP 2025-11-25 spec (icons + structuredContent + outputSchema on every tool + JSON Schema 2020-12), MCP 2025-06-18 Elicitation, and Streamable HTTP transport. Works with Antigravity, Claude Desktop, Claude Code, Codex CLI, Gemini CLI, Cursor, Cline, Roo Code, Continue, Windsurf, Zed, OpenCode, and any MCP-compatible client.",
   "type": "module",
   "bin": {
