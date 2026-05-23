@@ -26,10 +26,11 @@
   "homepage": "https://buygit.com/mcp",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/genoxdeveloper/buygit-mcp-server.git"
+    "url": "git+https://github.com/genoxdeveloper/Buygit.git",
+    "directory": "packages/mcp-server"
   },
   "bugs": {
-    "url": "https://github.com/genoxdeveloper/buygit-mcp-server/issues"
+    "url": "https://github.com/genoxdeveloper/Buygit/issues"
   },
   "keywords": [
     "mcp",
