@@ -8,9 +8,8 @@
  *
  * Auth: none. The /api/v1/crawler/* surface is public read-only.
  *
- * The single base URL is configurable via env so power users can point
- * the MCP server at a staging environment or self-hosted mirror:
- *   BUYGIT_API_BASE=https://staging.buygit.com
+ * the MCP server at a self-hosted mirror:
+ *   BUYGIT_API_BASE=https://your-buygit-mirror.example.com
  */
 import { Pool } from 'undici';
 import { VERSION } from './version.js';

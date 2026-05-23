@@ -40,7 +40,7 @@ async function startHttp(port: number, host: string): Promise<void> {
   await server.connect(transport);
 
   const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    // Liveness — Railway / k8s health checks pre-MCP-handshake.
+    // Liveness — health checks before MCP handshake.
     if (req.method === 'GET' && (req.url === '/' || req.url === '/healthz')) {
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ ok: true, name: NAME, version: VERSION }));
