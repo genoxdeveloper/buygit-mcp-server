@@ -1,5 +1,7 @@
 # @buygit/mcp-server
 
+[![buygit-mcp-server MCP server](https://glama.ai/mcp/servers/genoxdeveloper/buygit-mcp-server/badges/card.svg)](https://glama.ai/mcp/servers/genoxdeveloper/buygit-mcp-server)
+
 > The only MCP that returns **license + supply-chain risk + popularity + price in a single call**. 78,094 curated Git assets. Zero config. MIT. Free forever.
 
 MCP server for the **BuyGit Open Index** — 78,094 curated, deduplicated, license-tagged Git assets from GitHub, Codeberg, npm, crates.io, WordPress, HuggingFace, and 17 other sources — to Claude Desktop, Cursor, Cline, Continue, ChatGPT Apps SDK, and any MCP 2025-11-25 client.
